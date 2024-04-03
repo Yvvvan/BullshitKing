@@ -8,15 +8,15 @@ socketio = SocketIO(app)
 
 # 游戏用参数
 clients = {}
-connects = []
-
 # 结构 {'username': {'client_id': 'xxx', 'role': 'xxx'}}
-assignRole = False
+connects = []
+players = []
+waits = []
+
+startGame = False
 smartPlayer = None
 honestPlayer = None
-startGame = False
-playerLimit = 2
-playerListUpdated = False
+playerLimit = 4
 selectedWord = None
 
 wordDataBase = [
@@ -43,6 +43,11 @@ def number_players():
     return count
 
 
+def update_online_num():
+    emit('system_state', {'type': None,
+                          'message': f'P/W/C:{len(players)}/{len(waits)}/{len(connects) - len(waits) - len(players)}'},
+         broadcast=True)
+
 @app.route('/')
 def index():
     return render_template('index.html')
@@ -52,7 +57,9 @@ def index():
 def handle_connect():
     # print(f'Client connected: {request.sid}')
     connects.append(request.sid)
-    emit('system_message', {'client': request.sid, 'message': '请输入一个用户名'}, room=request.sid)
+    update_online_num()
+
+    emit('system_message', {'type': request.sid, 'message': '请输入一个用户名'}, room=request.sid)
 
 
 @socketio.on('disconnect')
@@ -60,14 +67,20 @@ def handle_disconnect():
     # print(f'Client disconnected: {request.sid}')
     username = client_id_to_usename(request.sid)
     connects.remove(request.sid)
+    if request.sid in waits:
+        waits.remove(request.sid)
+    if request.sid in players:
+        players.remove(request.sid)
+    update_online_num()
+
     if username:
         clients[username]['client_id'] = None
-        emit('system_message', {'client': request.sid, 'message': f'{username}已离开'}, broadcast=True)
+        emit('system_message', {'type': request.sid, 'message': f'{username}已离开'}, broadcast=True)
 
 
 @socketio.on('message_from_client')
 def handle_message(message):
-    global assignRole, smartPlayer, honestPlayer, startGame, playerLimit, playerListUpdated, selectedWord
+    global smartPlayer, honestPlayer, startGame, playerLimit, selectedWord
 
     client_id = request.sid
     # print(f'Client ID: {client_id}, Message: {message}')
@@ -77,60 +90,66 @@ def handle_message(message):
         userName = message
         if userName not in clients:
             clients[userName] = {'client_id': client_id, 'role': None}
-            emit('system_message', {'client': client_id, 'message': f'{userName}已加入'}, broadcast=True)
-            join_after_start(userName)
+            emit('system_message', {'type': "success", 'message': f'{userName}已加入'}, broadcast=True)
+            join(userName)
 
         elif userName in clients and clients[userName]['client_id'] is None:
             clients[userName]['client_id'] = client_id
-            emit('system_message', {'client': client_id, 'message': f'{userName}已重连'}, broadcast=True)
-            reconnect_after_start(userName)
+            emit('system_message', {'type': "success", 'message': f'{userName}已重连'}, broadcast=True)
+            reconnect(userName)
 
         elif userName in clients and clients[userName]['client_id'] is not None:
-            emit('system_message', {'client': client_id, 'message': f'{userName}已被占用，请重新输入'}, room=client_id)
+            emit('system_message', {'type': None, 'message': f'{userName}已被占用，请重新输入'}, room=client_id)
             return
 
         else:
-            emit('system_message', {'client': client_id, 'message': '未知错误'}, room=client_id)
+            emit('system_message', {'type': None, 'message': '未知错误'}, room=client_id)
             return
 
+    # 普通消息处理
     else:
+        # 特殊指令处理
         if message == '!!start' and not startGame:
             if number_players() < playerLimit:
-                emit('system_message', {'client': client_id, 'message': '人数不足'}, room=client_id)
+                emit('system_message', {'type': None, 'message': '人数不足'}, room=client_id)
                 return
             else:
-                emit('system_message', {'client': client_id, 'message': '游戏开始'}, broadcast=True)
+                emit('system_message', {'type': None, 'message': '游戏开始'}, broadcast=True)
                 startGame = True
                 start_game()
                 return
         elif message == '!!end' and startGame:
-            emit('system_message', {'client': client_id, 'message': '游戏结束'}, broadcast=True)
+            emit('system_message', {'type': None, 'message': '游戏结束'}, broadcast=True)
             startGame = False
-            assignRole = False
-            playerListUpdated = True
             for user in clients:
                 clients[user]['role'] = None
             return
+
+        # 普通消息处理
         else:
-            emit('player_message', {'client': client_id, 'username': client_id_to_usename(client_id),
+            emit('player_message', {'type': client_id, 'username': client_id_to_usename(client_id),
                                     'message': message}, broadcast=True)
             return
 
 
 def start_game():
+    global smartPlayer, honestPlayer, startGame, playerLimit, selectedWord, players, waits
+
     # 移除所有没有输入用户名的connection
     to_be_checked = connects.copy()
     for connect in to_be_checked:
         if not client_id_to_usename(connect):
-            emit('system_message', {'client': connect, 'message': '游戏已开始，由于未输入用户名，已断开连接'}, room=connect)
+            emit('system_message', {'type': None, 'message': '游戏已开始，由于未输入用户名，已断开连接'}, room=connect)
             disconnect(connect)
 
+    players = connects.copy()
+    waits = []
+    update_online_num()
 
     # 安排游戏逻辑
-    emit('game_message', {'client': None, 'message': '============='}, broadcast=True)
-    global assignRole, smartPlayer, honestPlayer, startGame, playerLimit, playerListUpdated, selectedWord
-    if not assignRole and startGame:
-        assignRole = True
+    emit('game_message', {'type': None, 'message': '============='}, broadcast=True)
+
+    if startGame:
         # 从mydict中随机选择一个key
         player_1 = random.choice(list(clients.keys()))  # 大聪明
         while clients[player_1]['client_id'] is None:
@@ -151,14 +170,14 @@ def start_game():
                     clients[i]['role'] = 'liar'
 
         # 把大聪明的名字发给所有人
-        emit('game_message', {'client': clients[player_1]['client_id'], 'message': f'{player_1}是大聪明!'},
+        emit('game_message', {'type': None, 'message': f'{player_1}是大聪明!'},
              broadcast=True)
 
         # 在wordDataBase中随机选择一个词语，把词语发给所有人
         word = random.choice(wordDataBase)
         selectedWord = word
 
-        emit('game_message', {'client': clients[player_1]['client_id'],
+        emit('game_message', {'type': None,
                               'message': f'\n词语： {word["word"]}'
                                          f'\n难度： {word["difficulty"]}'
                                          f'\n提示： {word["hint"]}'}, broadcast=True)
@@ -172,7 +191,7 @@ def start_game():
                     message = '【你是老实人】：故事：' + word['story']
                 else:
                     message = '【你是瞎掰人】：请准备瞎掰！'
-            emit('game_message', {'client': clients[i]['client_id'],
+            emit('game_message', {'type': None,
                                   'message': message},
                  broadcast=False, room=clients[i]['client_id'])
 
@@ -181,23 +200,29 @@ def start_game():
         # print('词语是：', word['word'], '，提示是：', word['hint'], '，故事是：', word['story'], '，难度是：', word['difficulty'])
 
 
-def reconnect_after_start(userName):
-    global assignRole, smartPlayer, honestPlayer, startGame, playerLimit, playerListUpdated, selectedWord
+def reconnect(userName):
+    global smartPlayer, honestPlayer, startGame, playerLimit, selectedWord
     word = selectedWord
     if startGame and clients[userName]['client_id'] is not None:
         if clients[userName]['role'] is not None:
-            emit('game_message', {'client': clients[userName]['client_id'],
+            # 有 name，有 role (游戏开始后，退出，重连)
+
+            players.append(clients[userName]['client_id'])
+            update_online_num()
+            
+
+            emit('game_message', {'type': None,
                                   'message': '游戏已经开始，重新连接成功'},
                  broadcast=False, room=clients[userName]['client_id'])
 
-            emit('game_message', {'client': None, 'message': '============='},
+            emit('game_message', {'type': None, 'message': '============='},
                  broadcast=False, room=clients[userName]['client_id'])
 
-            emit('game_message', {'client': clients[userName]['client_id'],
+            emit('game_message', {'type': None,
                                   'message': f'{smartPlayer}是大聪明'},
                  broadcast=False, room=clients[userName]['client_id'])
 
-            emit('game_message', {'client': clients[userName]['client_id'],
+            emit('game_message', {'type': None,
                                   'message': f'\n词语： {word["word"]}\n '
                                              f'难度： {word["difficulty"]}\n '
                                              f'提示： {word["hint"]}'},
@@ -209,17 +234,31 @@ def reconnect_after_start(userName):
                 message = '【你是老实人】：故事：\n' + word['story']
             else:
                 message = '【你是大聪明】：给出一个倒计时信号！'
-            emit('game_message', {'client': clients[userName]['client_id'],
+            emit('game_message', {'type': None,
                                   'message': message},
                  broadcast=False, room=clients[userName]['client_id'])
 
+        else:
+            # 有 name，无 role (游戏开始后，加入，退出，重连)
+            join(userName)
+    else:
+        # 有 name，无 role (游戏开始前，退出，重连)
+        join(userName)
 
-def join_after_start(userName):
+
+def join(userName):
+    global smartPlayer, honestPlayer, startGame, playerLimit, selectedWord
     if startGame and clients[userName]['client_id'] is not None:
-        emit('system_message', {'client': clients[userName]['client_id'],
+        # 无 name，无 role (游戏开始后，加入)
+        emit('system_message', {'type': None,
                                 'message': '游戏已经开始，请等待本轮游戏结束'},
              broadcast=False, room=clients[userName]['client_id'])
 
+    # 无 name，无 role (游戏开始前，加入/重连)
+    waits.append(clients[userName]['client_id'])
+    update_online_num()
+    
+
 
 if __name__ == '__main__':
-    socketio.run(app, port=5002)
+    socketio.run(app, port=5002, debug=True)

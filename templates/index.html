@@ -1,0 +1,172 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>瞎掰王</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.3.2/socket.io.js"></script>
+    <script src="{{ url_for('static', filename='js/bootstrap.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/bootstrap.bundle.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/bootstrap.esm.js') }}"></script>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/bootstrap.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/bootstrap.rtl.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/bootstrap-grid.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/bootstrap-grid.rtl.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/bootstrap-reboot.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/bootstrap-reboot.rtl.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/bootstrap-utilities.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/bootstrap-utilities.rtl.css') }}">
+
+    <style>
+        body{
+            margin: 0;
+            padding: 10px;
+            font-family: Arial, sans-serif;
+        }
+        .bottom-spacing {
+            padding-bottom: 60px; /* 根据需要调整值 */
+        }
+        .colmd8 {
+            width: 80%
+        }
+
+        /* 创建斜着的彩条滚动背景 */
+        body {
+            background: linear-gradient(to bottom right,
+                #ffcd39, #ffcd39,#fd7e14,#ffcd39 ,#ffcd39 ,#ffcd39,#fd7e14,#ffcd39,#ffcd39 ,#ffcd39,#ffcd39);
+            background-size: 500% 500%; /* 设置背景尺寸为原始尺寸的三倍 */
+            animation: dualColorScroll 3s linear infinite; /* 使用动画来实现滚动效果 */
+        }
+
+        /* 设置动画关键帧 */
+        @keyframes dualColorScroll {
+            0% {
+                background-position: 0% 0%; /* 开始位置 */
+            }
+            100% {
+                background-position: 50% 50%; /* 结束位置 */
+            }
+        }
+
+        .animate-in {
+            animation: slide-in 1s ease-in-out forwards;
+        }
+
+        /* .img-fluid2 {*/
+        /*    display: none; !* 默认隐藏 *!*/
+        /*    position: fixed; !* 固定在屏幕上 *!*/
+        /*    top: 50%; !* 初始位置：垂直居中 *!*/
+        /*    left: -100%; !* 初始位置：屏幕左侧外 *!*/
+        /*    animation: slideIn 0.5s forwards; !* 动画效果 *!*/
+        /*}*/
+
+        /*@keyframes slideIn {*/
+        /*    0% {*/
+        /*        left: -50%; !* 起始位置 *!*/
+        /*    }*/
+        /*    100% {*/
+        /*            left: 50%; !* 终点位置 *!*/
+        /*    }*/
+        /*}*/
+
+    </style>
+</head>
+<body style="background-color: #9eeaf9" >
+
+    <nav class="navbar navbar-expand-lg navbar-dark bg-dark fixed-top">
+        <div class="container">
+            <!-- 网站名称 -->
+            <h1 class="navbar-brand mb-0">瞎掰王 <span style="font-size: 10px">v0.1.2</span></h1>
+
+            <!-- 在线人数 -->
+            <p class="text-right mb-0" style="font-size: 10px; color: white">在线人数: <span id="playerNum">0/0/0</span></p>
+        </div>
+    </nav>
+
+    <!--    图片预留位置-->
+    <div class="d-flex justify-content-center mt-5 ">
+        <img src="{{ url_for('static', filename='image/a_placeholder.png') }}" class="img-fluid" alt="Responsive image" style="height: 50vh; width: auto; border-radius: 30px; transform: scaleX(-1)">
+    </div>
+
+    <div class="d-flex justify-content-center mt-5 card-entry">
+        <img src="{{ url_for('static', filename='image/a_placeholder.png') }}" class="img-fluid2" alt="Responsive image" style="height: 50vh; width: auto; border-radius: 30px; transform: scaleX(1)">
+    </div>
+
+
+
+    <div class="fixed-bottom d-flex justify-content-center bottom-spacing ">
+        <textarea id="systemMessages" class="form-control colmd8" rows="4" readonly style="margin-left: 25px; margin-right: 25px"></textarea>
+    </div>
+
+    <!-- 输入框和发送按钮 -->
+    <div class="fixed-bottom mb-3 d-flex justify-content-center">
+        <div class="colmd8 d-flex">
+            <input id="messageInput" type="text" class="form-control" placeholder="请输入用户名...">
+            <p style="width: 10px;"></p>
+            <button class="btn btn-primary" onclick="sendMessage()" style="min-width: 100px">发送</button>
+        </div>
+    </div>
+
+    <script type="text/javascript">
+        var socket = io.connect('http://' + document.domain + ':' + location.port);
+
+        socket.on('connect', function() {
+            console.log('Connected to the server');
+        });
+
+        socket.on('system_message', function(data) {
+            var systemMessagesTextarea = document.getElementById('systemMessages');
+            systemMessagesTextarea.value += '系统消息: ' + data.message + '\n';
+            systemMessagesTextarea.scrollTop = systemMessagesTextarea.scrollHeight;
+            if (data.type == 'success') {
+                console.log('success');
+                document.getElementById('messageInput').placeholder = '请输入消息...';
+            }
+
+        });
+
+        var imgElement2 = document.querySelector('.img-fluid2');
+             imgElement2.style.display = 'block'; // 显示第二张图片
+            imgElement2.classList.add('animate-in');
+
+
+
+        socket.on('player_message', function(data) {
+            var systemMessagesTextarea = document.getElementById('systemMessages');
+            systemMessagesTextarea.value += data.username+': ' + data.message + '\n';
+            systemMessagesTextarea.scrollTop = systemMessagesTextarea.scrollHeight;
+            // 获取图片元素
+            var imgElement = document.querySelector('.img-fluid');
+
+            // 添加过渡效果并水平翻转图片
+            imgElement.style.transition = 'transform 0.5s ease-in-out'; // 过渡效果，持续0.5秒，缓入缓出
+            imgElement.style.transform = 'scaleX(1)';
+
+            setTimeout(function() {
+                imgElement.src = "{{ url_for('static', filename='image/a_honest.png') }}";
+
+            }, 250); // 0.25秒后更改图片
+
+
+        });
+
+        socket.on('game_message', function(data) {
+            var systemMessagesTextarea = document.getElementById('systemMessages');
+            systemMessagesTextarea.value += data.message + '\n';
+            systemMessagesTextarea.scrollTop = systemMessagesTextarea.scrollHeight;
+        });
+
+        socket.on('system_state', function(data) {
+            var playerNumTextarea = document.getElementById('playerNum');
+            playerNumTextarea.innerHTML = data.message;
+        });
+
+        function sendMessage() {
+            var messageInput = document.getElementById('messageInput');
+            var message = messageInput.value;
+            socket.emit('message_from_client', message);
+            messageInput.value = ''; // 清空输入框
+        }
+    </script>
+</body>
+</html>
