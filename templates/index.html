@@ -7,7 +7,7 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.3.2/socket.io.js"></script>
     <script src="{{ url_for('static', filename='js/bootstrap.js') }}"></script>
     <script src="{{ url_for('static', filename='js/bootstrap.bundle.js') }}"></script>
-    <script src="{{ url_for('static', filename='js/bootstrap.esm.js') }}"></script>
+<!--    <script src="{{ url_for('static', filename='js/bootstrap.esm.js') }}"></script>-->
     <link rel="stylesheet" href="{{ url_for('static', filename='css/bootstrap.css') }}">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/bootstrap.rtl.css') }}">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/bootstrap-grid.css') }}">
@@ -52,22 +52,52 @@
             animation: slide-in 1s ease-in-out forwards;
         }
 
-        /* .img-fluid2 {*/
-        /*    display: none; !* 默认隐藏 *!*/
-        /*    position: fixed; !* 固定在屏幕上 *!*/
-        /*    top: 50%; !* 初始位置：垂直居中 *!*/
-        /*    left: -100%; !* 初始位置：屏幕左侧外 *!*/
-        /*    animation: slideIn 0.5s forwards; !* 动画效果 *!*/
-        /*}*/
+         .img-fluid2 {
+            display: none; /* 默认隐藏 */
+            position: fixed; /* 固定在屏幕上 */
+            top: 40vh; /* 初始位置：垂直居中 */
+            left: -100%; /* 初始位置：屏幕左侧外 */
+            animation: slideIn 0.5s forwards; /* 动画效果 */
+        }
 
-        /*@keyframes slideIn {*/
-        /*    0% {*/
-        /*        left: -50%; !* 起始位置 *!*/
-        /*    }*/
-        /*    100% {*/
-        /*            left: 50%; !* 终点位置 *!*/
-        /*    }*/
-        /*}*/
+        @keyframes slideIn {
+            0% {
+                left: -800%; /* 起始位置 */
+            }
+            100% {
+                    left: 2vw; /* 终点位置 */
+            }
+        }
+
+        .gamecard {
+            width: 95vw;
+            position: absolute;
+            bottom: 50vh;
+            left: 2vw;
+            transform-style: preserve-3d;
+            transition: transform 0.8s;
+        }
+
+        .gamecard:hover {
+            transform: rotateY(180deg);
+        }
+
+        .front,
+        .back {
+            display: block;
+            width: 100%;
+            height: 100%;
+            position: absolute;
+            backface-visibility: hidden;
+        }
+
+        .back {
+            transform: rotateY(180deg);
+        }
+
+        .hided {
+            display: none!important;
+        }
 
     </style>
 </head>
@@ -76,26 +106,40 @@
     <nav class="navbar navbar-expand-lg navbar-dark bg-dark fixed-top">
         <div class="container">
             <!-- 网站名称 -->
-            <h1 class="navbar-brand mb-0">瞎掰王 <span style="font-size: 10px">v0.1.2</span></h1>
+            <h1 class="navbar-brand mb-0">瞎掰王 <span style="font-size: 10px">v1.0.0</span></h1>
 
             <!-- 在线人数 -->
             <p class="text-right mb-0" style="font-size: 10px; color: white">在线人数: <span id="playerNum">0/0/0</span></p>
         </div>
     </nav>
 
-    <!--    图片预留位置-->
     <div class="d-flex justify-content-center mt-5 ">
         <img src="{{ url_for('static', filename='image/a_placeholder.png') }}" class="img-fluid" alt="Responsive image" style="height: 50vh; width: auto; border-radius: 30px; transform: scaleX(-1)">
     </div>
 
-    <div class="d-flex justify-content-center mt-5 card-entry">
-        <img src="{{ url_for('static', filename='image/a_placeholder.png') }}" class="img-fluid2" alt="Responsive image" style="height: 50vh; width: auto; border-radius: 30px; transform: scaleX(1)">
+    <div class="d-flex justify-content-center mt-5 card-entry" id="card-container">
+        <div class="gamecard img-fluid2" id="card">
+            <div class="front">
+                <img id="frontimg" src="{{ url_for('static', filename='image/a_example_1_1.jpg') }}" alt="Front Image" style="height: auto; width: 95vw; border-radius: 30px;">
+            </div>
+            <div class="back">
+                <img id="backimg" src="{{ url_for('static', filename='image/a_example_1_1.jpg') }}"  alt="Back Image" style="height: auto; width: 95vw; border-radius: 30px;">
+            </div>
+        </div>
     </div>
 
+    <!-- 开始游戏 结束游戏按钮 -->
+    <div class="fixed-bottom d-flex justify-content-center bottom-spacing control-button hided" style="bottom: 92px" id="control-button">
+        <button class="btn btn-primary" onclick="startGame()">开始游戏</button>
+        <p style="width: 10px;"></p>
+        <button class="btn btn-danger" onclick="endGame()">结束游戏</button>
+        <p style="width: 10px;"></p>
+        <button class="btn btn-success" onclick="countDown()">计时开始</button>
+    </div>
 
-
+    <!-- 系统消息 -->
     <div class="fixed-bottom d-flex justify-content-center bottom-spacing ">
-        <textarea id="systemMessages" class="form-control colmd8" rows="4" readonly style="margin-left: 25px; margin-right: 25px"></textarea>
+        <textarea id="systemMessages" class="form-control colmd8" rows="3" readonly style="margin-left: 25px; margin-right: 25px"></textarea>
     </div>
 
     <!-- 输入框和发送按钮 -->
@@ -108,6 +152,16 @@
     </div>
 
     <script type="text/javascript">
+
+        document.addEventListener("DOMContentLoaded", function() {
+            var cards = document.querySelectorAll(".card");
+            cards.forEach(function(card) {
+                card.addEventListener("click", function() {
+                    this.classList.toggle("flipped");
+                });
+            });
+        });
+
         var socket = io.connect('http://' + document.domain + ':' + location.port);
 
         socket.on('connect', function() {
@@ -116,44 +170,74 @@
 
         socket.on('system_message', function(data) {
             var systemMessagesTextarea = document.getElementById('systemMessages');
-            systemMessagesTextarea.value += '系统消息: ' + data.message + '\n';
-            systemMessagesTextarea.scrollTop = systemMessagesTextarea.scrollHeight;
-            if (data.type == 'success') {
-                console.log('success');
-                document.getElementById('messageInput').placeholder = '请输入消息...';
+            if (data.message == null) {
+                if (data.type == 'success') {
+                    console.log('success');
+                    document.getElementById('messageInput').placeholder = '请输入消息...';
+                    // 显示button
+                    document.getElementById('control-button').classList.remove('hided');
+                }
+            } else {
+                systemMessagesTextarea.value += '\n' + '系统消息: ' + data.message;
+                systemMessagesTextarea.scrollTop = systemMessagesTextarea.scrollHeight;
             }
 
         });
 
-        var imgElement2 = document.querySelector('.img-fluid2');
-             imgElement2.style.display = 'block'; // 显示第二张图片
-            imgElement2.classList.add('animate-in');
 
 
+        var imgcnt = 0;
 
         socket.on('player_message', function(data) {
             var systemMessagesTextarea = document.getElementById('systemMessages');
-            systemMessagesTextarea.value += data.username+': ' + data.message + '\n';
+            systemMessagesTextarea.value += '\n' + data.username+': ' + data.message;
             systemMessagesTextarea.scrollTop = systemMessagesTextarea.scrollHeight;
-            // 获取图片元素
-            var imgElement = document.querySelector('.img-fluid');
-
-            // 添加过渡效果并水平翻转图片
-            imgElement.style.transition = 'transform 0.5s ease-in-out'; // 过渡效果，持续0.5秒，缓入缓出
-            imgElement.style.transform = 'scaleX(1)';
-
-            setTimeout(function() {
-                imgElement.src = "{{ url_for('static', filename='image/a_honest.png') }}";
-
-            }, 250); // 0.25秒后更改图片
-
-
         });
 
         socket.on('game_message', function(data) {
-            var systemMessagesTextarea = document.getElementById('systemMessages');
-            systemMessagesTextarea.value += data.message + '\n';
-            systemMessagesTextarea.scrollTop = systemMessagesTextarea.scrollHeight;
+            if (data.message != null) {
+                var systemMessagesTextarea = document.getElementById('systemMessages');
+                systemMessagesTextarea.value += '\n' + data.message;
+                systemMessagesTextarea.scrollTop = systemMessagesTextarea.scrollHeight;
+            }
+
+            var type = data.type;
+            if (type == 'smart' || type == 'honest' || type == 'liar') {
+                var imgElement = document.querySelector('.img-fluid');
+                // 添加过渡效果并水平翻转图片
+                imgElement.style.transition = 'transform 0.5s ease-in-out'; // 过渡效果，持续0.5秒，缓入缓出
+                imgElement.style.transform = 'scaleX(1)';
+                setTimeout(function() {
+                    imgElement.src = "/static/image/a_" + type + ".png";
+                }, 250); // 0.25秒后更改图片
+                startGame_();
+            }
+            if ( type == 'honest' ) {
+                // 把backimg的src的最后一个1改成2
+                var backimgElement = document.getElementById('backimg');
+                var src = backimgElement.src;
+                // http://127.0.0.1:5002/static/image/a_example_1_1.jpg
+                console.log(src);
+                var src_0 = src.substring(0, src.length - 5);
+                var src_1 = "2.jpg";
+                backimgElement.src = src_0 + src_1;
+            }
+            if (type == 'smart' || type == 'liar') {
+
+            }
+            if (type != null && type != 'smart' && type != 'countdown' && type != 'end' && type != 'end2' ) {
+                var buttonElement = document.querySelector('.control-button');
+                buttonElement.classList.add('hided');
+            }
+            if (type == 'end') {
+                endGame_();
+            }
+            if (type == 'end2') {
+                endGame2_();
+            }
+            if (type == 'countdown') {
+                countDown_();
+            }
         });
 
         socket.on('system_state', function(data) {
@@ -166,6 +250,73 @@
             var message = messageInput.value;
             socket.emit('message_from_client', message);
             messageInput.value = ''; // 清空输入框
+        }
+
+        function startGame() {
+            socket.emit('message_from_client','!!start');
+        }
+
+        function startGame_() {
+
+        }
+
+        function countDown() {
+            socket.emit('message_from_client','!!countdown');
+        }
+
+        function countDown_() {
+            setTimeout(function() {
+                var imgElement2 = document.querySelector('.img-fluid2');
+                imgElement2.style.display = 'block'; // 显示第二张图片
+                imgElement2.classList.add('animate-in');
+            }, 2000);
+            // 30s 后 将backimg的src变成frontimg的src
+            setTimeout(function() {
+                var frontimgElement = document.getElementById('frontimg');
+                var backimgElement = document.getElementById('backimg');
+                backimgElement.src = frontimgElement.src;
+            }, 10000);
+        }
+
+
+        function endGame_() {
+            // 把backimg的src的最后一个1改成2
+            var backimgElement = document.getElementById('backimg');
+            var src = backimgElement.src;
+            // http://127.0.0.1:5002/static/image/a_example_1_1.jpg
+            console.log(src);
+            var src_0 = src.substring(0, src.length - 5);
+            var src_1 = "2.jpg";
+            backimgElement.src = src_0 + src_1;
+        }
+
+        function endGame2_() {
+            var imgElement = document.querySelector('.img-fluid');
+            // 添加过渡效果并水平翻转图片
+            imgElement.style.transition = 'transform 0.5s ease-in-out'; // 过渡效果，持续0.5秒，缓入缓出
+            imgElement.style.transform = 'scaleX(-1)';
+            setTimeout(function () {
+                imgElement.src = "/static/image/a_placeholder.png";
+            }, 250); // 0.25秒后更改图片
+            var buttonElement = document.getElementById('control-button');
+            buttonElement.classList.remove('hided');
+
+            var imgElement2 = document.querySelector('.img-fluid2');
+            imgElement2.style.display = 'none'; // 隐藏第二张图片
+            imgElement2.classList.remove('animate-in');
+        }
+
+        var endgamecnt = 0;
+        function endGame() {
+            if (endgamecnt == 0) {
+                endgamecnt = 1;
+                socket.emit('message_from_client','!!end');
+                endGame_();
+            } else {
+                endgamecnt = 0;
+                socket.emit('message_from_client','!!end2');
+                endGame2_();
+            }
         }
     </script>
 </body>
