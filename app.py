@@ -18,12 +18,14 @@ smartPlayer = None
 honestPlayer = None
 playerLimit = 4
 selectedWord = None
+endState = 0;
 
 wordDataBase = [
     {'word': '模拟词语',
      'difficulty': 1,
      'hint': '提示/词语/啊',
      'story': '模拟词语是我在做这个游戏的时候用来模拟的词语。',
+     'image': 'a_example_1'
      },
 ]
 
@@ -80,7 +82,7 @@ def handle_disconnect():
 
 @socketio.on('message_from_client')
 def handle_message(message):
-    global smartPlayer, honestPlayer, startGame, playerLimit, selectedWord
+    global smartPlayer, honestPlayer, startGame, playerLimit, selectedWord, endState
 
     client_id = request.sid
     # print(f'Client ID: {client_id}, Message: {message}')
@@ -124,14 +126,18 @@ def handle_message(message):
                     startGame = True
                     start_game()
                     return
-            elif message == '!!end' and startGame:
-                emit('game_message', {'type': 'end', 'message': '游戏结束\n============='}, broadcast=True)
-                startGame = False
-                for user in clients:
-                    clients[user]['role'] = None
-                return
-            elif message == '!!end2':
-                emit('game_message', {'type': 'end2', 'message': None}, broadcast=True)
+            elif message == '!!end':
+                if startGame and endState == 0:
+                    endState = 1
+                    emit('game_message', {'type': 'end', 'message': '游戏结束\n============='}, broadcast=True)
+                    for user in clients:
+                        clients[user]['role'] = None
+                    return
+                elif startGame and endState == 1:
+                    endState = 0
+                    startGame = False
+                    emit('game_message', {'type': 'end2', 'message': None}, broadcast=True)
+                    return
             elif message == '!!countdown' and startGame:
                 emit('game_message', {'type': 'countdown', 'message': '倒计时马上开始!'}, broadcast=True)
                 return
@@ -206,7 +212,7 @@ def start_game():
                     message = '【你是瞎掰人】：请准备瞎掰！'
                     msgtype = 'liar'
             emit('game_message', {'type': msgtype,
-                                  'message': message},
+                                  'message': message, 'image': word['image']},
                  broadcast=False, room=clients[i]['client_id'])
 
         # print('大聪明是：', player_1)
@@ -252,7 +258,7 @@ def reconnect(userName):
                 message = '【你是大聪明】：给出一个倒计时信号！'
                 msgtype = 'smart'
             emit('game_message', {'type': msgtype,
-                                  'message': message},
+                                  'message': message, 'image': word['image']},
                  broadcast=False, room=clients[userName]['client_id'])
 
         else:

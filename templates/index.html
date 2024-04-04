@@ -106,7 +106,7 @@
     <nav class="navbar navbar-expand-lg navbar-dark bg-dark fixed-top">
         <div class="container">
             <!-- 网站名称 -->
-            <h1 class="navbar-brand mb-0">瞎掰王 <span style="font-size: 10px">v1.0.0</span></h1>
+            <h1 class="navbar-brand mb-0">瞎掰王 <span style="font-size: 10px">v1.0.1</span></h1>
 
             <!-- 在线人数 -->
             <p class="text-right mb-0" style="font-size: 10px; color: white">在线人数: <span id="playerNum">0/0/0</span></p>
@@ -186,7 +186,8 @@
 
 
 
-        var imgcnt = 0;
+        var playerRole = null;
+        var imageThisRound = null;
 
         socket.on('player_message', function(data) {
             var systemMessagesTextarea = document.getElementById('systemMessages');
@@ -194,15 +195,13 @@
             systemMessagesTextarea.scrollTop = systemMessagesTextarea.scrollHeight;
         });
 
-        socket.on('game_message', function(data) {
-            if (data.message != null) {
-                var systemMessagesTextarea = document.getElementById('systemMessages');
-                systemMessagesTextarea.value += '\n' + data.message;
-                systemMessagesTextarea.scrollTop = systemMessagesTextarea.scrollHeight;
-            }
-
+        function gamestatechange(data) {
             var type = data.type;
+            if (type == null) {
+                return;
+            }
             if (type == 'smart' || type == 'honest' || type == 'liar') {
+                playerRole = type;
                 var imgElement = document.querySelector('.img-fluid');
                 // 添加过渡效果并水平翻转图片
                 imgElement.style.transition = 'transform 0.5s ease-in-out'; // 过渡效果，持续0.5秒，缓入缓出
@@ -213,17 +212,20 @@
                 startGame_();
             }
             if ( type == 'honest' ) {
-                // 把backimg的src的最后一个1改成2
+                var image = data.image;
+                imageThisRound = image;
                 var backimgElement = document.getElementById('backimg');
-                var src = backimgElement.src;
-                // http://127.0.0.1:5002/static/image/a_example_1_1.jpg
-                console.log(src);
-                var src_0 = src.substring(0, src.length - 5);
-                var src_1 = "2.jpg";
-                backimgElement.src = src_0 + src_1;
+                backimgElement.src = "/static/image/" + image + "_2.jpg";
+                var frontimgElement = document.getElementById('frontimg');
+                frontimgElement.src = "/static/image/" + image + "_1.jpg";
             }
             if (type == 'smart' || type == 'liar') {
-
+                var image = data.image;
+                imageThisRound = image;
+                var backimgElement = document.getElementById('backimg');
+                backimgElement.src = "/static/image/" + image + "_1.jpg";
+                var frontimgElement = document.getElementById('frontimg');
+                frontimgElement.src = "/static/image/" + image + "_1.jpg";
             }
             if (type != null && type != 'smart' && type != 'countdown' && type != 'end' && type != 'end2' ) {
                 var buttonElement = document.querySelector('.control-button');
@@ -237,7 +239,20 @@
             }
             if (type == 'countdown') {
                 countDown_();
+                var systemMessagesTextarea = document.getElementById('systemMessages');
+                systemMessagesTextarea.value += '\n (测试阶段,故事显示10s)' ;
+                systemMessagesTextarea.scrollTop = systemMessagesTextarea.scrollHeight;
             }
+        }
+
+        socket.on('game_message', function(data) {
+            if (data.message != null) {
+                var systemMessagesTextarea = document.getElementById('systemMessages');
+                systemMessagesTextarea.value += '\n' + data.message;
+                systemMessagesTextarea.scrollTop = systemMessagesTextarea.scrollHeight;
+            }
+
+            gamestatechange(data);
         });
 
         socket.on('system_state', function(data) {
@@ -275,48 +290,44 @@
                 var frontimgElement = document.getElementById('frontimg');
                 var backimgElement = document.getElementById('backimg');
                 backimgElement.src = frontimgElement.src;
+                var systemMessagesTextarea = document.getElementById('systemMessages');
+                systemMessagesTextarea.value += '\n (倒计时结束)' ;
+                systemMessagesTextarea.scrollTop = systemMessagesTextarea.scrollHeight;
             }, 10000);
         }
 
 
         function endGame_() {
-            // 把backimg的src的最后一个1改成2
+            // 把单词卡背面给显示出来
             var backimgElement = document.getElementById('backimg');
-            var src = backimgElement.src;
-            // http://127.0.0.1:5002/static/image/a_example_1_1.jpg
-            console.log(src);
-            var src_0 = src.substring(0, src.length - 5);
-            var src_1 = "2.jpg";
-            backimgElement.src = src_0 + src_1;
+            backimgElement.src = "/static/image/" + imageThisRound + "_2.jpg";
         }
 
         function endGame2_() {
+            // 身份牌 翻转
             var imgElement = document.querySelector('.img-fluid');
-            // 添加过渡效果并水平翻转图片
             imgElement.style.transition = 'transform 0.5s ease-in-out'; // 过渡效果，持续0.5秒，缓入缓出
             imgElement.style.transform = 'scaleX(-1)';
             setTimeout(function () {
                 imgElement.src = "/static/image/a_placeholder.png";
             }, 250); // 0.25秒后更改图片
+
+            // 显示button 开始/结束
             var buttonElement = document.getElementById('control-button');
             buttonElement.classList.remove('hided');
 
+            // 隐藏单词卡
             var imgElement2 = document.querySelector('.img-fluid2');
             imgElement2.style.display = 'none'; // 隐藏第二张图片
             imgElement2.classList.remove('animate-in');
+
+            // 清空变量
+            playerRole = null;
+            imageThisRound = null;
         }
 
-        var endgamecnt = 0;
         function endGame() {
-            if (endgamecnt == 0) {
-                endgamecnt = 1;
-                socket.emit('message_from_client','!!end');
-                endGame_();
-            } else {
-                endgamecnt = 0;
-                socket.emit('message_from_client','!!end2');
-                endGame2_();
-            }
+            socket.emit('message_from_client','!!end');
         }
     </script>
 </body>
