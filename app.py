@@ -80,7 +80,7 @@ def handle_connect():
     connects.append(request.sid)
     update_online_num()
 
-    emit('system_message', {'type': request.sid, 'message': '请输入一个用户名'}, room=request.sid)
+    emit('system_message', {'type': 'handshake', 'message': '请输入一个用户名'}, room=request.sid)
 
 
 @socketio.on('disconnect')
@@ -123,7 +123,7 @@ def handle_message(message):
     if not client_id_to_usename(client_id):
         userName = message
         if userName.startswith('!!'):
-            emit('system_message', {'type': None, 'message': '用户名不能以!!开头'}, room=client_id)
+            emit('system_message', {'type': None, 'message': None}, room=client_id)
             return
         if userName not in clients:
             clients[userName] = {'client_id': client_id, 'role': None}

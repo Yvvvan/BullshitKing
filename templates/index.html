@@ -106,7 +106,7 @@
     <nav class="navbar navbar-expand-lg navbar-dark bg-dark fixed-top">
         <div class="container">
             <!-- 网站名称 -->
-            <h1 class="navbar-brand mb-0">瞎掰王 <span style="font-size: 10px">v1.0.3</span></h1>
+            <h1 class="navbar-brand mb-0">瞎掰王 <span style="font-size: 10px">v1.0.4</span></h1>
 
             <!-- 信息小按钮 -->
             <button class="btn btn-outline-light" type="button" data-bs-toggle="modal" data-bs-target="#infoModal" style="font-size: xx-small" onclick="help()">帮助</button>
@@ -127,15 +127,14 @@
           </div>
           <!-- 模态框内容 -->
           <div class="modal-body">
-              1. 这是一个根据《瞎掰王》制作的demo游戏。目前有四张教学卡片。当所有卡片都被抽完时，系统会进入阻塞状态(之后会调整)，需要重新刷新页面。<br>
+              1. 这是一个根据《瞎掰王》制作的demo游戏(全部素材来源网上，请支持正版！)。目前有4张教学卡片。当所有卡片都被抽完时，系统会重复卡片。<br>
               2. 目的是在和朋友出去玩的时候也能很方便的玩上一局，比如吃饭的时候。<br>
-              3. 目前在测试阶段，只有一个房间(任何打开该网页的人都被连接到了同一个游戏房间)，最少游戏人数是3人，每张卡片有10秒的时间阅读/瞎编。
+              3. 目前在测试阶段，只有一个房间(任何打开该网页的人都被连接到了同一个游戏房间)，最少游戏人数是3人，每张卡片有40秒的时间阅读/瞎编。
               聪明人有游戏的开始结束控制权。在结束以后，大家都可以阅读卡片。<br>
               4. 目前有一个消息窗口，也可以当聊天窗口用。<br>
               5. 在线人数P/W/C代表：正在游戏的人/等待游戏的人/还没设置用户名的人。<br>
               6. 瞎点点就知道该怎么用了。:)<br>
               7. Bug反馈给Yufan！<br>
-              8. 已知bug，部署以后，浏览器出现连接延迟(用户退出后没有收到disconnected信号)。故不要测试关闭浏览器窗口。
           </div>
           <!-- 模态框底部 -->
 <!--          <div class="modal-footer">-->
@@ -187,6 +186,8 @@
 
     <script type="text/javascript">
 
+        document.getElementById('systemMessages').value = '\n看到此消息时，连接已断开，请刷新页面！';
+
         document.addEventListener("DOMContentLoaded", function() {
             var cards = document.querySelectorAll(".card");
             cards.forEach(function(card) {
@@ -197,6 +198,7 @@
         });
 
         var socket = io.connect('//' + document.domain + ':' + location.port);
+        socket.emit('message_from_client','!!reconnect');
 
         socket.on('connect', function() {
             console.log('Connected to the server');
@@ -204,17 +206,25 @@
 
         socket.on('system_message', function(data) {
             var systemMessagesTextarea = document.getElementById('systemMessages');
+
+            if (data.type == 'success') {
+                console.log('success');
+                document.getElementById('messageInput').placeholder = '请输入消息...';
+                // 显示button
+                document.getElementById('control-button').classList.remove('hided');
+            }
+            if(data.type == 'handshake') {
+                systemMessagesTextarea.value = '';
+                systemMessagesTextarea.scrollTop = systemMessagesTextarea.scrollHeight;
+            }
+            
             if (data.message == null) {
-                if (data.type == 'success') {
-                    console.log('success');
-                    document.getElementById('messageInput').placeholder = '请输入消息...';
-                    // 显示button
-                    document.getElementById('control-button').classList.remove('hided');
-                }
+                
             } else {
                 systemMessagesTextarea.value += '\n' + '系统消息: ' + data.message;
                 systemMessagesTextarea.scrollTop = systemMessagesTextarea.scrollHeight;
             }
+            
 
         });
 
@@ -286,13 +296,14 @@
             if (type == 'countdown') {
                 countDown_();
                 var systemMessagesTextarea = document.getElementById('systemMessages');
-                systemMessagesTextarea.value += '\n (测试阶段,故事显示10s)' ;
+                systemMessagesTextarea.value += '\n (测试阶段,故事显示40s)' ;
                 systemMessagesTextarea.scrollTop = systemMessagesTextarea.scrollHeight;
 
-                // 禁用countdownButton, startButton, 启用endButton
+                // 禁用countdownButton, startButton, endButton
+                // 在countDown_中有延迟的开放设置
                 document.getElementById('countdownButton').disabled = true;
                 document.getElementById('startButton').disabled = true;
-                document.getElementById('endButton').disabled = false;
+                document.getElementById('endButton').disabled = true;
             }
 
             // 结束游戏1
@@ -355,7 +366,10 @@
                 var imgElement2 = document.querySelector('.img-fluid2');
                 imgElement2.style.display = 'block'; // 显示第二张图片
                 imgElement2.classList.add('animate-in');
-            }, 2000);
+                document.getElementById('startButton').disabled = true;
+                document.getElementById('countdownButton').disabled = true;
+                document.getElementById('endButton').disabled = true;
+            }, 1000);
             // 30s 后 将backimg的src变成frontimg的src
             setTimeout(function() {
                 var frontimgElement = document.getElementById('frontimg');
@@ -364,7 +378,10 @@
                 var systemMessagesTextarea = document.getElementById('systemMessages');
                 systemMessagesTextarea.value += '\n (倒计时结束)' ;
                 systemMessagesTextarea.scrollTop = systemMessagesTextarea.scrollHeight;
-            }, 10000);
+                document.getElementById('startButton').disabled = true;
+                document.getElementById('countdownButton').disabled = true;
+                document.getElementById('endButton').disabled = false;
+            }, 40000);
         }
 
 
