@@ -134,7 +134,8 @@
               4. 目前有一个消息窗口，也可以当聊天窗口用。<br>
               5. 在线人数P/W/C代表：正在游戏的人/等待游戏的人/还没设置用户名的人。<br>
               6. 瞎点点就知道该怎么用了。:)<br>
-              7. Bug反馈给Yufan！
+              7. Bug反馈给Yufan！<br>
+              8. 已知bug，部署以后，浏览器出现连接延迟(用户退出后没有收到disconnected信号)。故不要测试关闭浏览器窗口。
           </div>
           <!-- 模态框底部 -->
 <!--          <div class="modal-footer">-->
@@ -195,7 +196,7 @@
             });
         });
 
-        var socket = io.connect('http://' + document.domain + ':' + location.port);
+        var socket = io.connect('//' + document.domain + ':' + location.port);
 
         socket.on('connect', function() {
             console.log('Connected to the server');

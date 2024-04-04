@@ -5,6 +5,7 @@ from flask_socketio import SocketIO, emit, disconnect
 app = Flask(__name__)
 app.config['SECRET_KEY'] = 'secret!'
 socketio = SocketIO(app)
+socketio.init_app(app, cors_allowed_origins="*")
 
 # 游戏用参数
 clients = {}
@@ -230,9 +231,8 @@ def start_game():
         while word in selectedWords:
             word = random.choice(wordDataBase)
             if len(selectedWords) == len(wordDataBase):
-                emit('game_message', {'type': 'end', 'message': '词库已空，游戏结束'}, broadcast=True)
-                startGame = False
-                return
+                emit('game_message', {'type': None, 'message': '词库已空，重新开始'}, broadcast=True)
+                selectedWords.clear()
         selectedWords.append(word)
         selectedWord = word
 
@@ -326,4 +326,4 @@ def join(userName):
 
 
 if __name__ == '__main__':
-    socketio.run(app, port=5002, debug=True)
+    socketio.run(app, port=15672, allow_unsafe_werkzeug=True)
