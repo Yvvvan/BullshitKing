@@ -21,7 +21,7 @@ playerLimit = 3
 selectedWord = None
 endState = 0;
 
-wordDataBase = [
+wordDataBaseDefault = (
     {'word': '模拟词语1',
      'difficulty': 1,
      'hint': '提示/词语/啊',
@@ -46,7 +46,9 @@ wordDataBase = [
          'story': '模拟词语是我在做这个游戏的时候用来模拟的词语。',
          'image': 'a_example_4'
          },
-]
+)
+
+wordDataBase = list(wordDataBaseDefault)
 selectedWords = []
 
 def client_id_to_usename(client_id):
@@ -110,6 +112,7 @@ def handle_disconnect():
         selectedWord = None
         endState = 0
         selectedWords.clear()
+        wordDataBase = list(wordDataBaseDefault)
 
 
 @socketio.on('message_from_client')
@@ -172,6 +175,20 @@ def handle_message(message):
                     return
             elif message == '!!countdown' and startGame:
                 emit('game_message', {'type': 'countdown', 'message': '倒计时马上开始!'}, broadcast=True)
+                return
+            elif '!!setCountDown' in message and not startGame:
+                countDown = message.split(' ')[1]
+                emit('system_message', {'type': 'settingCountDown', 
+                                        'message': f'倒计时被 {client_id_to_usename(client_id)} 设置为 {countDown} 秒', 
+                                        'value': int(countDown)}, broadcast=True)
+                return
+            elif message == '!!useFull':
+                
+                return
+            elif message == '!!useTutor':
+                wordDataBase = list(wordDataBaseDefault)
+                emit('system_message', {'type': None, 
+                                        'message': f'词库已被 {client_id_to_usename(client_id)} 重置为 教学词库'}, broadcast=True)
                 return
 
         # 普通消息处理

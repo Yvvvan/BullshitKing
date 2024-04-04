@@ -109,7 +109,8 @@
             <h1 class="navbar-brand mb-0">瞎掰王 <span style="font-size: 10px">v1.0.4</span></h1>
 
             <!-- 信息小按钮 -->
-            <button class="btn btn-outline-light" type="button" data-bs-toggle="modal" data-bs-target="#infoModal" style="font-size: xx-small" onclick="help()">帮助</button>
+            <button class="btn btn-outline-light" type="button" data-bs-toggle="modal" data-bs-target="#infoModal" style="font-size: xx-small">帮助</button>
+            <button class="btn btn-outline-light hided" type="button" data-bs-toggle="modal" data-bs-target="#setModal" style="font-size: xx-small" id="setButton">设定</button>
 
             <!-- 在线人数 -->
             <p class="text-right mb-0" style="font-size: 10px; color: white">在线人数: <span id="playerNum">0/0/0</span></p>
@@ -127,14 +128,15 @@
           </div>
           <!-- 模态框内容 -->
           <div class="modal-body">
-              1. 这是一个根据《瞎掰王》制作的demo游戏(全部素材来源网上，请支持正版！)。目前有4张教学卡片。当所有卡片都被抽完时，系统会重复卡片。<br>
+              1. 这是一个根据《瞎掰王》制作的demo游戏。目前有4张教学卡片。当所有卡片都被抽完时，系统会重复卡片。<br>
               2. 目的是在和朋友出去玩的时候也能很方便的玩上一局，比如吃饭的时候。<br>
-              3. 目前在测试阶段，只有一个房间(任何打开该网页的人都被连接到了同一个游戏房间)，最少游戏人数是3人，每张卡片有40秒的时间阅读/瞎编。
-              聪明人有游戏的开始结束控制权。在结束以后，大家都可以阅读卡片。<br>
-              4. 目前有一个消息窗口，也可以当聊天窗口用。<br>
-              5. 在线人数P/W/C代表：正在游戏的人/等待游戏的人/还没设置用户名的人。<br>
-              6. 瞎点点就知道该怎么用了。:)<br>
-              7. Bug反馈给Yufan！<br>
+              3. 最少游戏人数是3人，每张卡片有40秒的时间阅读/瞎编，在设置中改变倒计时时间。<br>
+              4. 聪明人有游戏的开始结束控制权。在结束以后，大家都可以阅读卡片。<br>
+              5. 目前有一个消息窗口，也可以当聊天窗口用。<br>
+              6. 目前在测试阶段，只有一个房间(任何打开该网页的人都被连接到了同一个游戏房间)。在线人数P/W/C代表：正在游戏的人/等待游戏的人/还没设置用户名的人。<br>
+              7. 随便点点就知道该怎么用了。:)<br>
+              8. Bug反馈给<a href="https://github.com/Yvvvan/BullshitKing">Yufan Github Repo</a><br>
+              (全部素材来源网上，请支持正版！！！)
           </div>
           <!-- 模态框底部 -->
 <!--          <div class="modal-footer">-->
@@ -143,6 +145,50 @@
         </div>
       </div>
     </div>
+
+    <div class="modal fade" id="setModal" tabindex="-1" aria-labelledby="setModalLabel" aria-hidden="true">
+        <div class="modal-dialog">
+          <div class="modal-content">
+            <!-- 模态框头部 -->
+            <div class="modal-header">
+              <h5 class="modal-title" id="setModalLabel">设定</h5>
+                <p style="width: 10px;"></p>
+              <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <!-- 模态框内容 -->
+            <div class="modal-body">
+                <!-- <div class="input-group mb-3">
+                  <span class="input-group-text" id="basic-addon1">用户名</span>
+                  <input type="text" class="form-control" placeholder="请输入用户名" aria-label="Username" aria-describedby="basic-addon1">
+                  <button class="btn btn-primary" type="button">更新</button>
+                </div> -->
+
+                <div class="input-group mb-3">
+                  <span class="input-group-text" id="basic-addon1">倒计时</span>
+                  <input type="text" class="form-control" placeholder="请输入倒计时，默认40" aria-label="Username" aria-describedby="basic-addon1" id="setCountDown">
+                  <button class="btn btn-primary" type="button" onclick="setCountDown()">设定</button>
+                </div>
+
+                
+                <div class="text-center">
+                    <button class="btn btn-danger" type="button" onclick="useFull()">教学结束！加入500张卡片！</button>
+                </div>
+
+                <!-- 空行 -->
+                <p style="width: 10px;"></p>
+
+                <div class="text-center">
+                    <button class="btn btn-success" type="button" onclick="useTutor()">只使用教学卡片！</button>
+                </div>
+                
+            </div>
+            <!-- 模态框底部 -->
+  <!--          <div class="modal-footer">-->
+  <!--            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">关闭</button>-->
+  <!--          </div>-->
+          </div>
+        </div>
+      </div>
 
     <div class="d-flex justify-content-center mt-5 ">
         <img src="{{ url_for('static', filename='image/a_placeholder.png') }}" class="img-fluid" alt="Responsive image" style="height: 50vh; width: auto; border-radius: 30px; transform: scaleX(-1)">
@@ -186,6 +232,10 @@
 
     <script type="text/javascript">
 
+        var playerRole = null;
+        var imageThisRound = null;
+        var countdownsecond = 40;
+
         document.getElementById('systemMessages').value = '\n看到此消息时，连接已断开，请刷新页面！';
 
         document.addEventListener("DOMContentLoaded", function() {
@@ -207,17 +257,24 @@
         socket.on('system_message', function(data) {
             var systemMessagesTextarea = document.getElementById('systemMessages');
 
-            if (data.type == 'success') {
-                console.log('success');
-                document.getElementById('messageInput').placeholder = '请输入消息...';
-                // 显示button
-                document.getElementById('control-button').classList.remove('hided');
-            }
-            if(data.type == 'handshake') {
+            // 连接之后
+            if (data.type == 'handshake') {
                 systemMessagesTextarea.value = '';
                 systemMessagesTextarea.scrollTop = systemMessagesTextarea.scrollHeight;
             }
+            // 设定用户名后
+            if (data.type == 'success') {
+                console.log('success');
+                document.getElementById('messageInput').placeholder = '请输入消息...';
+                document.getElementById('control-button').classList.remove('hided');
+                document.getElementById('setButton').classList.remove('hided');
+            }
+            // 设定倒计时
+            if (data.type == 'settingCountDown') {
+                countdownsecond = Number(data.value);
+            }
             
+            // 打印
             if (data.message == null) {
                 
             } else {
@@ -227,11 +284,6 @@
             
 
         });
-
-
-
-        var playerRole = null;
-        var imageThisRound = null;
 
 
         socket.on('player_message', function(data) {
@@ -296,7 +348,7 @@
             if (type == 'countdown') {
                 countDown_();
                 var systemMessagesTextarea = document.getElementById('systemMessages');
-                systemMessagesTextarea.value += '\n (测试阶段,故事显示40s)' ;
+                systemMessagesTextarea.value += '\n... 倒计时 ' + countdownsecond + ' 秒' ;
                 systemMessagesTextarea.scrollTop = systemMessagesTextarea.scrollHeight;
 
                 // 禁用countdownButton, startButton, endButton
@@ -370,18 +422,29 @@
                 document.getElementById('countdownButton').disabled = true;
                 document.getElementById('endButton').disabled = true;
             }, 1000);
-            // 30s 后 将backimg的src变成frontimg的src
+            
+            var systemMessagesTextarea = document.getElementById('systemMessages');
+
+            // 在9秒后每一秒发送倒计时剩余描述
+            for (var i = 1; i < 10; i++) {
+                (function(j){
+                    setTimeout(function() {
+                        systemMessagesTextarea.value += ' ...' + j;
+                        systemMessagesTextarea.scrollTop = systemMessagesTextarea.scrollHeight;
+                    }, (countdownsecond - i) * 1000);
+                })(i);
+            }
+            
             setTimeout(function() {
                 var frontimgElement = document.getElementById('frontimg');
                 var backimgElement = document.getElementById('backimg');
                 backimgElement.src = frontimgElement.src;
-                var systemMessagesTextarea = document.getElementById('systemMessages');
-                systemMessagesTextarea.value += '\n (倒计时结束)' ;
+                systemMessagesTextarea.value += '\n... 倒计时结束 ...' ;
                 systemMessagesTextarea.scrollTop = systemMessagesTextarea.scrollHeight;
                 document.getElementById('startButton').disabled = true;
                 document.getElementById('countdownButton').disabled = true;
                 document.getElementById('endButton').disabled = false;
-            }, 40000);
+            }, countdownsecond * 1000);
         }
 
 
@@ -416,6 +479,19 @@
 
         function endGame() {
             socket.emit('message_from_client','!!end');
+        }
+
+        function setCountDown() {
+            var setCountDown = document.getElementById('setCountDown').value;
+            socket.emit('message_from_client','!!setCountDown ' + setCountDown);
+        }
+
+        function useFull() {
+            socket.emit('message_from_client','!!useFull');
+        }
+
+        function useTutor() {
+            socket.emit('message_from_client','!!useTutor');
         }
     </script>
 </body>
