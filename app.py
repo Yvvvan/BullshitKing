@@ -16,19 +16,37 @@ waits = []
 startGame = False
 smartPlayer = None
 honestPlayer = None
-playerLimit = 4
+playerLimit = 3
 selectedWord = None
 endState = 0;
 
 wordDataBase = [
-    {'word': '模拟词语',
+    {'word': '模拟词语1',
      'difficulty': 1,
      'hint': '提示/词语/啊',
      'story': '模拟词语是我在做这个游戏的时候用来模拟的词语。',
      'image': 'a_example_1'
      },
+    {'word': '模拟词语2',
+         'difficulty': 1,
+         'hint': '提示/词语/啊',
+         'story': '模拟词语是我在做这个游戏的时候用来模拟的词语。',
+         'image': 'a_example_2'
+         },
+    {'word': '模拟词语3',
+         'difficulty': 1,
+         'hint': '提示/词语/啊',
+         'story': '模拟词语是我在做这个游戏的时候用来模拟的词语。',
+         'image': 'a_example_3'
+         },
+    {'word': '模拟词语4',
+         'difficulty': 1,
+         'hint': '提示/词语/啊',
+         'story': '模拟词语是我在做这个游戏的时候用来模拟的词语。',
+         'image': 'a_example_4'
+         },
 ]
-
+selectedWords = []
 
 def client_id_to_usename(client_id):
     for username in clients:
@@ -66,6 +84,7 @@ def handle_connect():
 
 @socketio.on('disconnect')
 def handle_disconnect():
+    global smartPlayer, honestPlayer, startGame, selectedWord, endState, selectedWords
     # print(f'Client disconnected: {request.sid}')
     username = client_id_to_usename(request.sid)
     connects.remove(request.sid)
@@ -78,6 +97,18 @@ def handle_disconnect():
     if username:
         clients[username]['client_id'] = None
         emit('system_message', {'type': request.sid, 'message': f'{username}已离开'}, broadcast=True)
+
+    # 如果没人在线 清空所有数据
+    if len(connects) == 0:
+        clients.clear()
+        players.clear()
+        waits.clear()
+        startGame = False
+        smartPlayer = None
+        honestPlayer = None
+        selectedWord = None
+        endState = 0
+        selectedWords.clear()
 
 
 @socketio.on('message_from_client')
@@ -159,7 +190,10 @@ def start_game():
             emit('system_message', {'type': None, 'message': '游戏已开始，由于未输入用户名，已断开连接'}, room=connect)
             disconnect(connect)
 
+
+
     players = connects.copy()
+    print(f'players: {players}')
     waits = []
     update_online_num()
 
@@ -167,6 +201,7 @@ def start_game():
     emit('game_message', {'type': None, 'message': '============='}, broadcast=True)
 
     if startGame:
+        print(1)
         # 从mydict中随机选择一个key
         player_1 = random.choice(list(clients.keys()))  # 大聪明
         while clients[player_1]['client_id'] is None:
@@ -192,6 +227,13 @@ def start_game():
 
         # 在wordDataBase中随机选择一个词语，把词语发给所有人
         word = random.choice(wordDataBase)
+        while word in selectedWords:
+            word = random.choice(wordDataBase)
+            if len(selectedWords) == len(wordDataBase):
+                emit('game_message', {'type': 'end', 'message': '词库已空，游戏结束'}, broadcast=True)
+                startGame = False
+                return
+        selectedWords.append(word)
         selectedWord = word
 
         # emit('game_message', {'type': None,
@@ -206,10 +248,10 @@ def start_game():
                     message = '【你是大聪明】：给出一个倒计时信号！'
                     msgtype = 'smart'
                 elif i == player_2:
-                    message = '【你是老实人】：故事：' + word['story']
+                    message = '【你是老实人】：请速记卡片！'
                     msgtype = 'honest'
                 else:
-                    message = '【你是瞎掰人】：请准备瞎掰！'
+                    message = '【你是瞎掰人】：请准备瞎掰！别忘了假装阅读的样子！'
                     msgtype = 'liar'
             emit('game_message', {'type': msgtype,
                                   'message': message, 'image': word['image']},
@@ -249,10 +291,10 @@ def reconnect(userName):
             #      broadcast=False, room=clients[userName]['client_id'])
 
             if clients[userName]['role'] == 'liar':
-                message = '【你是瞎掰人】：请准备瞎掰！'
+                message = '【你是瞎掰人】：请准备瞎掰！别忘了假装阅读的样子！'
                 msgtype = 'liar'
             elif clients[userName]['role'] == 'honest':
-                message = '【你是老实人】：故事：\n' + word['story']
+                message = '【你是老实人】：请速记卡片！'
                 msgtype = 'honest'
             else:
                 message = '【你是大聪明】：给出一个倒计时信号！'
