@@ -1,7 +1,7 @@
 import random
 from flask import Flask, render_template, request
 from flask_socketio import SocketIO, emit, disconnect
-
+import json
 app = Flask(__name__)
 app.config['SECRET_KEY'] = 'secret!'
 socketio = SocketIO(app)
@@ -47,6 +47,11 @@ wordDataBaseDefault = (
          'image': 'a_example_4'
          },
 )
+
+wordDataBaseFull = None
+# read from json file at static/data.json
+with open('static/data.json', 'r') as f:
+    wordDataBaseFull = json.load(f)
 
 wordDataBase = list(wordDataBaseDefault)
 selectedWords = []
@@ -117,7 +122,7 @@ def handle_disconnect():
 
 @socketio.on('message_from_client')
 def handle_message(message):
-    global smartPlayer, honestPlayer, startGame, playerLimit, selectedWord, endState
+    global smartPlayer, honestPlayer, startGame, playerLimit, selectedWord, endState, selectedWords, wordDataBase
 
     client_id = request.sid
     # print(f'Client ID: {client_id}, Message: {message}')
@@ -183,7 +188,9 @@ def handle_message(message):
                                         'value': int(countDown)}, broadcast=True)
                 return
             elif message == '!!useFull':
-                
+                wordDataBase = wordDataBaseFull.copy()
+                emit('system_message', {'type': None,
+                                        'message': f'词库已被 {client_id_to_usename(client_id)} 重置为 500全词库'}, broadcast=True)
                 return
             elif message == '!!useTutor':
                 wordDataBase = list(wordDataBaseDefault)
