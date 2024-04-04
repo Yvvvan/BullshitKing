@@ -187,14 +187,14 @@ def handle_message(message):
                                         'message': f'倒计时被 {client_id_to_usename(client_id)} 设置为 {countDown} 秒', 
                                         'value': int(countDown)}, broadcast=True)
                 return
-            elif message == '!!useFull':
+            elif message == '!!useFull' and not startGame:
                 wordDataBase = wordDataBaseFull.copy()
-                emit('system_message', {'type': None,
+                emit('system_message', {'type': 'useFull',
                                         'message': f'词库已被 {client_id_to_usename(client_id)} 重置为 500全词库'}, broadcast=True)
                 return
-            elif message == '!!useTutor':
+            elif message == '!!useTutor' and not startGame:
                 wordDataBase = list(wordDataBaseDefault)
-                emit('system_message', {'type': None, 
+                emit('system_message', {'type': 'useTutor',
                                         'message': f'词库已被 {client_id_to_usename(client_id)} 重置为 教学词库'}, broadcast=True)
                 return
 
@@ -218,7 +218,6 @@ def start_game():
 
 
     players = connects.copy()
-    print(f'players: {players}')
     waits = []
     update_online_num()
 
@@ -226,7 +225,6 @@ def start_game():
     emit('game_message', {'type': None, 'message': '============='}, broadcast=True)
 
     if startGame:
-        print(1)
         # 从mydict中随机选择一个key
         player_1 = random.choice(list(clients.keys()))  # 大聪明
         while clients[player_1]['client_id'] is None:
