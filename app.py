@@ -19,7 +19,7 @@ smartPlayer = None
 honestPlayer = None
 playerLimit = 3
 selectedWord = None
-endState = 0;
+endState = 0
 
 wordDataBaseDefault = (
     {'word': '模拟词语1',
@@ -87,7 +87,7 @@ def handle_connect():
     connects.append(request.sid)
     update_online_num()
 
-    emit('system_message', {'type': 'handshake', 'message': '请输入一个用户名'}, room=request.sid)
+    emit('system_message', {'type': 'handshake', 'message': '请输入一个用户名 \n(如果输入后没有收到 "登陆成功"，请刷新)'}, room=request.sid)
 
 
 @socketio.on('disconnect')
@@ -134,15 +134,15 @@ def handle_message(message):
             emit('system_message', {'type': None, 'message': None}, room=client_id)
             return
         if userName not in clients:
-            clients[userName] = {'client_id': client_id, 'role': None}
+            clients[userName] = {'client_id': client_id, 'role': None, 'smartCnt':0}
             emit('system_message', {'type': None, 'message': f'{userName}已加入'}, broadcast=True)
-            emit('system_message', {'type': "success", 'message': None}, room=client_id)
+            emit('system_message', {'type': "success", 'message': userName}, room=client_id)
             join(userName)
 
         elif userName in clients and clients[userName]['client_id'] is None:
             clients[userName]['client_id'] = client_id
             emit('system_message', {'type': None, 'message': f'{userName}已重连'}, broadcast=True)
-            emit('system_message', {'type': "success", 'message': None}, room=client_id)
+            emit('system_message', {'type': "success", 'message': userName}, room=client_id)
             reconnect(userName)
 
         elif userName in clients and clients[userName]['client_id'] is not None:
@@ -170,12 +170,12 @@ def handle_message(message):
                 if startGame and endState == 0:
                     endState = 1
                     emit('game_message', {'type': 'end', 'message': '游戏结束\n============='}, broadcast=True)
-                    for user in clients:
-                        clients[user]['role'] = None
                     return
                 elif startGame and endState == 1:
                     endState = 0
                     startGame = False
+                    for user in clients:
+                        clients[user]['role'] = None
                     emit('game_message', {'type': 'end2', 'message': None}, broadcast=True)
                     return
             elif message == '!!countdown' and startGame:
@@ -197,6 +197,50 @@ def handle_message(message):
                 emit('system_message', {'type': 'useTutor',
                                         'message': f'词库已被 {client_id_to_usename(client_id)} 重置为 教学词库'}, broadcast=True)
                 return
+            elif message == "!!resetAll":
+                emit('system_message', {'type': 'resetAll', 'message': '所有数据已被重置,请刷新页面后加入'}, broadcast=True)
+                for connect in connects:
+                    disconnect(connect)
+                connects.clear()
+                clients.clear()
+                players.clear()
+                waits.clear()
+                startGame = False
+                smartPlayer = None
+                honestPlayer = None
+                selectedWord = None
+                endState = 0
+                selectedWords.clear()
+                wordDataBase = list(wordDataBaseDefault)
+                return
+            elif message == "!!skip" and startGame:
+                # repick word
+                word = random.choice(wordDataBase)
+                while word in selectedWords:
+                    word = random.choice(wordDataBase)
+                    if len(selectedWords) == len(wordDataBase):
+                        emit('game_message', {'type': None, 'message': '词库已空，重新开始'}, broadcast=True)
+                        selectedWords.clear()
+                selectedWords.append(word)
+                selectedWord = word
+                
+                # resend start message    
+                for i in clients:
+                    if clients[i]['client_id'] is not None:
+                        if i == smartPlayer:
+                            message = '【你是大聪明】：给出一个倒计时信号！'
+                            msgtype = 'smart'
+                        elif i == honestPlayer:
+                            message = '【你是老实人】：请速记卡片！'
+                            msgtype = 'honest'
+                        else:
+                            message = '【你是瞎掰人】：请准备瞎掰！别忘了假装阅读的样子！'
+                            msgtype = 'liar'
+                    emit('game_message', {'type': msgtype,
+                                        'message': message, 'image': word['image']},
+                        broadcast=False, room=clients[i]['client_id'])
+                emit('game_message', {'type': 'skip', 'message': '重新选词，身份不变'}, broadcast=True)
+                
 
         # 普通消息处理
         else:
@@ -225,15 +269,29 @@ def start_game():
     emit('game_message', {'type': None, 'message': '============='}, broadcast=True)
 
     if startGame:
-        # 从mydict中随机选择一个key
-        player_1 = random.choice(list(clients.keys()))  # 大聪明
-        while clients[player_1]['client_id'] is None:
-            player_1 = random.choice(list(clients.keys()))
+        
+        chosenList = []
+        for i in clients:
+            if clients[i]['client_id'] is not None:
+                chosenList.append(i)
+        # 按smartCnt从小到大排序
+        chosenList.sort(key=lambda x: clients[x]['smartCnt'])
+        # 轮流选择 不是上一次的smartPlayer 就行
+        for i in chosenList:
+            if i != smartPlayer:
+                player_1 = i
+                break
+            
+        clients[player_1]['smartCnt'] += 1
+
+
         player_2 = player_1  # 老实人
         while player_1 == player_2 or clients[player_2]['client_id'] is None:
             player_2 = random.choice(list(clients.keys()))
+        
         smartPlayer = player_1
         honestPlayer = player_2
+        
         # 这个player是“大聪明” 其他人是“瞎掰人”
         for i in clients:
             if clients[i]['client_id'] is not None:
@@ -321,7 +379,7 @@ def reconnect(userName):
             else:
                 message = '【你是大聪明】：给出一个倒计时信号！'
                 msgtype = 'smart'
-            emit('game_message', {'type': msgtype,
+            emit('game_message', {'type': msgtype, 'type2' : 'reconnect',
                                   'message': message, 'image': word['image']},
                  broadcast=False, room=clients[userName]['client_id'])
 
